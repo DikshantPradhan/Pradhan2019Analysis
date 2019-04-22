@@ -1,0 +1,485 @@
+---
+title: "analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+Load libraries
+
+```{r}
+library(ggplot2)
+library(magrittr)
+library(gplots)
+library(RColorBrewer)
+```
+
+
+Organize PAO sets into a data frame
+
+```{r}
+pao_gene_data_frame <- gene_data_frame(pao_model, pao_gr0_sets, pao_gr1_sets)
+pao_gene_data_frame <- pao_gene_data_frame[rev(order(pao_gene_data_frame$gpr_promiscuity)),]
+pao_gene_data_frame$numbers <- 1:nrow(pao_gene_data_frame)
+
+n_genes <- length(unique(unlist(pao_gr0_sets)))
+
+```
+
+Plot statistics of PAO gene sets
+
+```{r gene_rxn, echo=FALSE}
+qplot(pao_gene_data_frame$gpr_promiscuity, geom="histogram", binwidth = 1) +
+  xlab('Number of Associated Reactions') + ylab('Number of Genes') +
+  theme_bw() + theme(panel.border = element_blank(), panel.grid.major = element_blank(), 
+                     panel.grid.minor = element_blank(), axis.line = element_line(colour = "black")) 
+
+```
+
+```{r gene_sets, echo=FALSE}
+qplot(pao_gene_data_frame$gr0_promiscuity[which(pao_gene_data_frame$gr0_promiscuity > 0)], geom="histogram", binwidth = 1, xlim = c(0,15)) +
+  xlab('Number of Associated Sets') + ylab('Number of Genes') +
+  theme_bw() + theme(panel.border = element_blank(), panel.grid.major = element_blank(), 
+                     panel.grid.minor = element_blank(), axis.line = element_line(colour = "black")) 
+
+```
+
+Organize PAO GR0 and GR1 sets for plotting
+
+```{r}
+gr0_df <- 1:length(pao_gr0_sets) #c()# data.frame()
+gr0_df$size <- vapply(pao_gr0_sets, function(x){length(x)}, c(1))
+gr0_df <- data.frame(gr0_df)
+gr0_df <- gr0_df[which(gr0_df$size > 0),]
+gr0_df <- gr0_df[rev(order(gr0_df$size)),]
+gr0_df$numbers <- 1:nrow(gr0_df)
+
+gr1_df <- 1:length(pao_gr1_sets) #c()# data.frame()
+gr1_df$size <- vapply(pao_gr1_sets, function(x){length(x)}, c(1))
+gr1_df <- data.frame(gr1_df)
+gr1_df <- gr1_df[which(gr1_df$size > 0),]
+gr1_df <- gr1_df[rev(order(gr1_df$size)),]
+gr1_df$numbers <- 1:nrow(gr1_df)
+
+gr0_set_sizes <- gr0_df$size[which(gr0_df$size > 0)]
+g0_set_sizes <- g0_df$X..genes[which(g0_df$X..genes > 0)]
+
+gr1_set_sizes <- gr1_df$size[which(gr1_df$size > 0)]
+g1_set_sizes <- unlist(g1_df$X..genes[which(g1_df$X..genes > 0)])
+
+set_df <- data.frame(sets = c(g0_set_sizes, gr0_set_sizes), category = c(rep('G0 Sets', length(g0_set_sizes)), 
+                                                                         rep('GR0 Sets', length(gr0_set_sizes))))
+
+```
+
+Plot the sizes of PAO gene sets
+
+```{r, echo=FALSE}
+ggplot(set_df, aes(x = sets, fill = category)) + #xlim(c(-1,125)) + #geom_histogram(alpha = 0.3) + xlab('Set Size') + ylab('Count') +
+  geom_histogram(position = "dodge", alpha = .8) + 
+  theme_bw() + theme(panel.border = element_blank(), panel.grid.major = element_blank(), 
+                     panel.grid.minor = element_blank(), axis.line = element_line(colour = "black")) 
+
+```
+
+```{r}
+set_df <- data.frame(sets = c(g1_set_sizes, gr1_set_sizes), category = c(rep('G1 Sets', length(g1_set_sizes)), 
+                                                                         rep('GR1 Sets', length(gr1_set_sizes))))
+
+```
+
+
+```{r, echo=FALSE}
+ggplot(set_df, aes(x = sets, fill = category)) + #xlim(c(-1,125)) + #geom_histogram(alpha = 0.3) + xlab('Set Size') + ylab('Count') +
+  geom_histogram(position = "dodge", alpha = .8) + 
+  theme_bw() + theme(panel.border = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+                     axis.line = element_line(colour = "black")) 
+```
+
+Process the names of genes in the gene sets
+
+```{r}
+g0 <- clean_sets(g0_sets)
+gr0 <- clean_sets(gr0_sets)
+g1 <- clean_sets(g1_sets)
+gr1 <- clean_sets(gr1_sets)
+```
+
+Plot distributions of pair-wise correlations between genes in sets
+
+```{r, echo=FALSE}
+plot_in_out(g0, C)
+```
+
+
+```{r, echo=FALSE}
+plot_in_out(gr0, C)
+```
+
+
+```{r, echo=FALSE}
+plot_in_out(g1, C)
+```
+
+
+```{r, echo=FALSE}
+plot_in_out(gr1, C)
+```
+
+Calculate average pair-wise correlations between genes in gene sets
+
+```{r}
+g0_avg_set_cor <- vapply(1:length(g0), function(x){return(set_cor(g0[[x]], C = C))}, FUN.VALUE = c(1))
+gr0_avg_set_cor <- vapply(1:length(gr0), function(x){return(set_cor(gr0[[x]], C = C))}, FUN.VALUE = c(1))
+g1_avg_set_cor <- vapply(1:length(g1), function(x){return(set_cor(g1[[x]], C = C))}, FUN.VALUE = c(1))
+gr1_avg_set_cor <- vapply(1:length(gr1), function(x){return(set_cor(gr1[[x]], C = C))}, FUN.VALUE = c(1))
+
+g0_set_analysis <- set_analysis(g0, C = C)
+
+gr0_set_analysis <- set_analysis(gr0, C = C)
+
+g1_set_analysis <- set_analysis(g1, C = C)
+
+gr1_set_analysis <- set_analysis(gr1, C = C)
+
+```
+
+Plot average pair-wise correlations in sets
+
+```{r, echo=FALSE}
+plot_correlation_and_quantiles(g0_set_analysis, 'G0 Average Set Correlation and Quartiles', 'Set', 'Correlation')
+```
+
+```{r, echo=FALSE}
+plot_correlation_and_quantiles(gr0_set_analysis, 'GR0 Average Set Correlation and Quartiles', 'Set', 'Correlation')
+```
+
+```{r, echo=FALSE}
+plot_correlation_and_quantiles(g1_set_analysis, 'G1 Average Set Correlation and Quartiles', 'Set', 'Correlation')
+```
+
+```{r, echo=FALSE}
+plot_correlation_and_quantiles(gr1_set_analysis, 'GR1 Average Set Correlation and Quartiles', 'Set', 'Correlation')
+```
+
+```{r}
+g0 <- g0_sets
+gr0 <- gr0_sets
+```
+
+Plot heatmaps of GR0 and G0 sets
+
+```{r, echo=FALSE}
+draw_heatmap_g0(634, 106, g0, gr0, C = C)
+```
+
+```{r, echo=FALSE}
+draw_heatmap_g0(654, 109, g0, gr0, C = C)
+```
+
+Bootstrap the distribution of differential expression and differential fitness genes in the PAO gene sets
+
+```{r}
+pao_data <- pao1
+
+g0_set_df_og <- gene_set_dataframe(g0_sets)
+g1_set_df_og <- gene_set_dataframe(g1_sets)
+genes_in_model <- unique(unlist(g0_sets))
+
+df_genes <- pao_data$gene[which(pao_data$sig_df)]
+df_genes <- df_genes[which(df_genes %in% genes_in_model)]
+pure_df_genes <- pao_data$gene[which(pao_data$sig_df & !pao_data$sig_de)]
+pure_df_genes <- df_genes[which(pure_df_genes %in% genes_in_model)]
+de_genes <- pao_data$gene[which(pao_data$sig_de)]
+de_genes <- de_genes[which(de_genes %in% genes_in_model)]
+pure_de_genes <- pao_data$gene[which(pao_data$sig_de & !pao_data$sig_df)]
+pure_de_genes <- de_genes[which(pure_de_genes %in% genes_in_model)]
+dfde_genes <- pao_data$gene[which(pao_data$sig_de & pao_data$sig_df)]
+dfde_genes <- dfde_genes[which(dfde_genes %in% genes_in_model)]
+num_df <- length(df_genes)
+num_de <- length(de_genes)
+num_dfde <- length(dfde_genes)
+interest_genes <- unique(c(df_genes, de_genes))
+
+# organize data into dataframes
+g0_set_df <- gene_set_dataframe(g0_sets)
+g1_set_df <- gene_set_dataframe(g1_sets)
+
+binary_df_g0_sets <- binary_set_assignment(g0_sets, df_genes)
+binary_df_g0_assign <- binary_set_histogram(binary_df_g0_sets)
+binary_de_g0_sets <- binary_set_assignment(g0_sets, de_genes)
+binary_de_g0_assign <- binary_set_histogram(binary_de_g0_sets)
+g0_set_df <- cbind(g0_set_df, binary_df_g0_assign, binary_de_g0_assign)
+colnames(g0_set_df) <- c('sets', 'clean sets', '# genes', 'df frac', 'de frac')
+g0_df_obs <- g0_set_df[which(g0_set_df[,3] > 1),4]
+g0_de_obs <- g0_set_df[which(g0_set_df[,3] > 1),5]
+
+binary_df_g1_sets <- binary_set_assignment(g1_sets, df_genes)
+binary_df_g1_assign <- binary_set_histogram(binary_df_g1_sets)
+binary_de_g1_sets <- binary_set_assignment(g1_sets, de_genes)
+binary_de_g1_assign <- binary_set_histogram(binary_de_g1_sets)
+g1_set_df <- cbind(g1_set_df, binary_df_g1_assign, binary_de_g1_assign)
+colnames(g1_set_df) <- c('sets', 'clean sets', '# genes', 'df frac', 'de frac')
+g1_df_obs <- g1_set_df[which(g1_set_df[,3] > 1),4]
+g1_de_obs <- g1_set_df[which(g1_set_df[,3] > 1),5]
+
+num_g0_sets <- length(which(g0_set_df[,3] > 1))
+num_g1_sets <- length(which(g1_set_df[,3] > 1))
+
+n = 1000
+g0_df_vec <- matrix(data = 0, nrow = num_g0_sets, ncol = 1)
+g0_de_vec <- matrix(data = 0, nrow = num_g0_sets, ncol = 1)
+g1_df_vec <- matrix(data = 0, nrow = num_g1_sets, ncol = 1)
+g1_de_vec <- matrix(data = 0, nrow = num_g1_sets, ncol = 1)
+
+for (i in 1:n){
+  df_genes <- sample(genes_in_model, size = num_df, replace = FALSE)
+  de_genes <- sample(genes_in_model, size = num_de, replace = FALSE)
+  
+  binary_df_g0_sets <- binary_set_assignment(g0_sets, df_genes)
+  binary_df_g0_assign <- binary_set_histogram(binary_df_g0_sets)
+  binary_de_g0_sets <- binary_set_assignment(g0_sets, de_genes)
+  binary_de_g0_assign <- binary_set_histogram(binary_de_g0_sets)
+  g0_set_df <- cbind(g0_set_df_og, binary_df_g0_assign, binary_de_g0_assign)
+  colnames(g0_set_df) <- c('sets', 'clean sets', '# genes', 'df frac', 'de frac')
+  g0_df_vec <- cbind(g0_df_vec, g0_set_df[which(g0_set_df[,3] > 1),4])
+  g0_de_vec <- cbind(g0_de_vec, g0_set_df[which(g0_set_df[,3] > 1),5])
+  
+  binary_df_g1_sets <- binary_set_assignment(g1_sets, df_genes)
+  binary_df_g1_assign <- binary_set_histogram(binary_df_g1_sets)
+  binary_de_g1_sets <- binary_set_assignment(g1_sets, de_genes)
+  binary_de_g1_assign <- binary_set_histogram(binary_de_g1_sets)
+  g1_set_df <- cbind(g1_set_df_og, binary_df_g1_assign, binary_de_g1_assign)
+  colnames(g1_set_df) <- c('sets', 'clean sets', '# genes', 'df frac', 'de frac')
+  g1_df_vec <- cbind(g1_df_vec, g1_set_df[which(g1_set_df[,3] > 1),4])
+  g1_de_vec <- cbind(g1_de_vec, g1_set_df[which(g1_set_df[,3] > 1),5])
+}
+
+```
+
+Plot the composition gene sets in terms of fraction of dF and dE genes
+
+```{r, echo=FALSE}
+plot_density_compar(g0_df_vec, ylimits = c(0,90), freqs = table(as.numeric(g0_df_obs)))
+title(main="Differential Fitness Composition in G0 Sets", xlab="% of Genes in Set with Differential Fitness", ylab="Frequency")
+legend(0.45, 80, legend = c('bootstrapped', 'observed'), col = c('grey', 'blue'), lwd = 1)
+
+```
+
+```{r, echo=FALSE}
+plot_density_compar(g0_de_vec, ylimits = c(0,60), freqs = table(as.numeric(g0_de_obs)))
+title(main="Differential Expression Composition in G0 Sets", xlab="% of Genes in Set with Differential Expression", ylab="Frequency")
+legend(0.45, 60, legend = c('bootstrapped', 'observed'), col = c('grey', 'blue'), lwd = 1)
+
+```
+
+```{r, echo=FALSE}
+plot_density_compar(g1_df_vec, ylimits = c(0,80), freqs = table(as.numeric(g1_df_obs)))
+title(main="Differential Fitness Composition in G1 Sets", xlab="% of Genes in Set with Differential Fitness", ylab="Frequency")
+legend(0.45, 80, legend = c('bootstrapped', 'observed'), col = c('grey', 'blue'), lwd = 1)
+
+```
+
+```{r, echo=FALSE}
+plot_density_compar(g1_de_vec, ylimits = c(0,60), freqs = table(as.numeric(g1_de_obs)))
+title(main="Differential Expression Composition in G1 Sets", xlab="% of Genes in Set with Differential Expression", ylab="Frequency")
+legend(0.45, 60, legend = c('bootstrapped', 'observed'), col = c('grey', 'blue'), lwd = 1)
+
+```
+
+Organize bootstrap results into dataframes for plotting
+
+```{r}
+g0_df <- gene_set_expanded_dataframe(g0_set_df_og, g0_sets, df_genes, de_genes, interest_genes, pure_df_genes, pure_de_genes, dfde_genes)
+g1_df <- gene_set_expanded_dataframe(g1_set_df_og, g1_sets, df_genes, de_genes, interest_genes, pure_df_genes, pure_de_genes, dfde_genes)
+
+```
+
+Plot the distribution of dF genes in G0 sets compared to bootstraped sets
+
+```{r, echo=FALSE}
+plot_set_characteristic_hypothesis(g0_df_obs, g0_df_vec, color = 'lightskyblue') #Distribution of Differential Fitness Genes in G0 Sets
+```
+
+Plot the distribution of dE genes in G0 sets compared to bootstraped sets
+
+```{r, echo=FALSE}
+plot_set_characteristic_hypothesis(g0_de_obs, g0_de_vec, color = 'chartreuse3') #Distribution of Differential Expression Genes in G0 Sets
+```
+
+Plot the distribution of dF genes in G1 sets compared to bootstraped sets
+
+```{r, echo=FALSE}
+plot_set_characteristic_hypothesis(g1_df_obs, g1_df_vec, color = 'lightskyblue') #Distribution of Differential Fitness Genes in G1 Sets
+```
+
+Plot the distribution of dE genes in G1 sets compared to bootstraped sets
+
+```{r, echo=FALSE}
+plot_set_characteristic_hypothesis(g1_de_obs, g1_de_vec, color = 'chartreuse3') #Distribution of Differential Expression Genes in G1 Sets
+```
+
+Bootstrap the distribution of genes which show both differential expression and differential fitness in G0 sets
+
+```{r}
+bootstrapped_dfde_count <- c()
+num_genes <- length(genes_in_model)
+for (i in 1:1000){
+  dfde_binary <- matrix(data = 0, nrow = 1, ncol = num_genes)
+  df <- sample(1:num_genes, size = num_df, replace = FALSE)
+  de <- sample(1:num_genes, size = num_de, replace = FALSE)
+  dfde_binary[df] <- dfde_binary[df] + 1
+  dfde_binary[de] <- dfde_binary[de] + 1
+  
+  bootstrapped_dfde_count <- c(bootstrapped_dfde_count, length(which(dfde_binary == 2)))
+}
+bootstrapped_dfde_count <- data.frame(bootstrapped_dfde_count)
+colnames(bootstrapped_dfde_count) <- 'ct'
+
+```
+
+Plot the distribution of dFdE genes compared to bootstrapped results
+
+```{r, echo=FALSE}
+ggplot(bootstrapped_dfde_count, aes(x=ct)) + 
+  geom_histogram(aes(y=..density..),      # Histogram with density instead of count on y-axis
+                 binwidth=2,
+                 colour="black", fill='mediumpurple1') +
+  geom_density() + scale_x_continuous(limits = c(0,125)) +
+  geom_vline(xintercept = num_dfde, colour = 'red', linetype="dashed") +
+  theme_bw() + theme(panel.border = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), 
+                     axis.line = element_line(colour = "black")) 
+
+```
+
+```{r}
+reduced_g0_df <- g0_df[which(g0_df$X..genes > 1),]
+reduced_g1_df <- g1_df[which(g1_df$X..genes > 1),]
+
+n_g0_sets <- nrow(reduced_g0_df)
+n_g1_sets <- nrow(reduced_g1_df)
+
+n = 1000
+g0_dfde_vec <- matrix(data = 0, nrow = n_g0_sets, ncol = 1)
+g1_dfde_vec <- matrix(data = 0, nrow = n_g1_sets, ncol = 1)
+
+for (i in 1:n){
+  g0_df_frac_sampled <- sample(reduced_g0_df$df_frac, size = n_g0_sets)
+  g0_de_frac_sampled <- sample(reduced_g0_df$de_frac, size = n_g0_sets)
+  dfde_frac_list <- bootstrap_dfde(g0_df_frac_sampled, g0_de_frac_sampled, reduced_g0_df$X..genes)
+  g0_dfde_vec <- cbind(g0_dfde_vec, dfde_frac_list)
+  
+  g1_df_frac_sampled <- sample(reduced_g1_df$df_frac, size = n_g1_sets)
+  g1_de_frac_sampled <- sample(reduced_g1_df$de_frac, size = n_g1_sets)
+  dfde_sample <- bootstrap_dfde(g1_df_frac_sampled, g1_de_frac_sampled, reduced_g1_df$X..genes)
+  g1_dfde_vec <- cbind(g1_dfde_vec, dfde_sample)
+}
+
+```
+
+```{r, echo=FALSE}
+plot_density_compar(g0_dfde_vec, ylimits = c(0,110), freqs = table(as.numeric(reduced_g0_df$dfde_frac)))
+title(main="g0 dFdE set composition", xlab="% of genes with fitness defect & expression change", ylab="frequency")
+
+```
+
+```{r, echo=FALSE}
+plot_density_compar(g1_dfde_vec, ylimits = c(0,110), freqs = table(as.numeric(reduced_g1_df$dfde_frac)))
+title(main="g1 dFdE set composition", xlab="% of genes with fitness defect & expression change", ylab="frequency")
+
+```
+
+```{r}
+load('Pradhan2019data.RData')
+
+```
+
+Bootstrap G1 set architecture
+
+```{r}
+pao_data <- pao1
+
+sig_threshold <- 0.5
+
+sig_df_frac <- g0_df$df_frac >= sig_threshold
+sig_de_frac <- g0_df$de_frac >= sig_threshold
+
+composing_sets_list <- lapply(g1_df$sets, function(x){find_composing_sets(x, g0_df$sets)})
+composing_sets_length_list <- lapply(composing_sets_list, function(x){length(x)})
+
+g1_df$composing_g0_sets <- composing_sets_list
+g1_df$num_composing_sets <- composing_sets_length_list
+sets <- unlist(g1_df$composing_g0_sets[which(g1_df$num_composing_sets > 1)])
+sets <- intersect(sets, which(g0_df$X..genes >= 1))
+
+rxns <- unlist(g0_df$sets[sets])
+g1_rxns <- unlist(g1_df$sets)
+rxns <- intersect(rxns, g1_rxns)
+pao_coupling_mtx <- full_pao_coupling_mtx
+network_coupling_mtx <- pao_coupling_mtx[rxns, rxns]
+
+g0_set_coupling_mtx <- matrix(FALSE, nrow = length(sets), ncol = length(sets))
+rownames(g0_set_coupling_mtx) <- sets
+colnames(g0_set_coupling_mtx) <- sets
+
+for (i in 1:length(sets)){
+  for (j in i:length(sets)){
+    set1 <- intersect(unlist(g0_df$sets[sets[i]]), g1_rxns)
+    set2 <- intersect(unlist(g0_df$sets[sets[j]]), g1_rxns)
+    
+    if (any(pao_coupling_mtx[set1,set2]) | any(pao_coupling_mtx[set2, set1])){
+      g0_set_coupling_mtx[i,j] <- TRUE
+    }
+  }
+}
+
+g0_set_coupling_mtx[lower.tri(g0_set_coupling_mtx, diag = TRUE)] <- FALSE
+
+og_edge_list <- g1_architecture_measurement_binary(g0_set_coupling_mtx, sig_df_frac, sig_de_frac, dfde_var = 5)
+edge_list <- g1_architecture_bootstrap(g0_set_coupling_mtx, sig_df_frac, sig_de_frac, 1000, dfde_var = 5)
+
+df_edges <- edge_list[, seq(from = 1, to = 3000, by = 3)]
+de_edges <- edge_list[, seq(from = 2, to = 3000, by = 3)]
+euc_edges <- edge_list[, seq(from = 3, to = 3000, by = 3)]
+
+```
+
+Plot the number of edges between dF sets to other dF sets in redundancy analysis compared to bootstrapped results
+
+```{r, echo=FALSE}
+binary_edge_histogram(df_edges, og_edge_list[,1], title = '', color = 'lightskyblue') # df-df_edges (threshold fraction = 0.50)
+```
+
+Plot the number of edges between dE sets to other dE sets in redundancy analysis compared to bootstrapped results
+
+```{r, echo=FALSE}
+binary_edge_histogram(de_edges, og_edge_list[,2], title = '', color = 'chartreuse3') # de-de_edges (threshold fraction = 0.50)
+```
+
+Plot the number of edges between dF sets to dE sets in redundancy analysis compared to bootstrapped results
+
+```{r, echo=FALSE}
+binary_edge_histogram(euc_edges, og_edge_list[,3], title = '', color = 'mediumorchid') # df-de_edges (threshold fraction = 0.50)
+```
